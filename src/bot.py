@@ -1,7 +1,9 @@
-import discord
 from discord.ext import commands
-import youtube_dl
 from secrets import TOKEN
+from urllib.parse import quote
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+
 
 client = commands.Bot(command_prefix="oe ")
 
@@ -19,6 +21,20 @@ def check_queue(id):
         player.start()
 
 
+def get_link_if_search(textToSearch):
+    if "youtube.com" not in textToSearch:
+        query = quote(textToSearch)
+        url = "https://www.youtube.com/results?search_query=" + query
+        response = urlopen(url)
+        html = response.read()
+        soup = BeautifulSoup(html, "html.parser")
+        vid = soup.findAll(attrs={'class': 'yt-uix-tile-link'})[0]
+        return('https://www.youtube.com' + vid['href'])
+
+    else:
+        return textToSearch
+
+
 @client.event
 async def on_ready():
     print("Kongo Master Ready!!")
@@ -27,6 +43,11 @@ async def on_ready():
 @client.command()
 async def ping():
     await client.say("Pong!")
+
+
+@client.command()
+async def yt(message):
+    await client.say(get_link_if_search(message))
 
 
 @client.command(pass_context=True)
@@ -43,7 +64,7 @@ async def leave(ctx):
 
 
 @client.command(pass_context=True)
-async def play(ctx, url):
+async def play(ctx, text):
     server = ctx.message.server
     if client.is_voice_connected(server):
         voice_client = client.voice_client_in(server)
@@ -51,8 +72,11 @@ async def play(ctx, url):
         channel = ctx.message.author.voice.voice_channel
         voice_client = await client.join_voice_channel(channel)
 
+    url = get_link_if_search(text)
     player = await voice_client.create_ytdl_player(url)
     players[server.id] = player
+
+    await client.say("Zumbando: " + url)
     player.start()
 
 
